@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flowers for Sofía</title>
+<meta name="description" content="A little bouquet, just for you.">
+<meta property="og:title" content="Flowers for Sofía 🌸">
+<meta property="og:description" content="A little bouquet, just for you.">
+<meta property="og:image" content="https://jrigholman.github.io/flowers-for-sofia/sofia.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#f6dcd4">
+<link rel="preload" href="sofia-flowers.mp4" as="video" type="video/mp4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blush: #f6dcd4;
+    --rose: #c94f5f;
+    --ink: #6b3a3f;
+    --gold: #c9a35b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--blush);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    color: var(--ink);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* soft blurred backdrop for wide screens */
+  .backdrop {
+    position: fixed; inset: -40px;
+    background: url(start.jpg) center / cover no-repeat;
+    filter: blur(30px) saturate(1.1);
+    opacity: .85;
+    transition: background-image 1.5s;
+  }
+  .backdrop.bloomed { background-image: url(sofia.jpg); }
+
+  .stage {
+    position: fixed;
+    top: 50%; left: 50%;
+    height: min(100dvh, calc(100vw * 16 / 9));
+    aspect-ratio: 9 / 16;
+    transform: translate(-50%, -50%);
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(107, 58, 63, .25);
+    background: #f3d6cd url(start.jpg) center / cover;
+  }
+  @media (min-aspect-ratio: 9/16) { .stage { border-radius: 0; } }
+  @media (min-width: 700px) { .stage { height: min(94dvh, calc(100vw * 16 / 9)); border-radius: 22px; } }
+
+  video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  video { object-fit: cover; }
+  canvas { cursor: pointer; }
+
+  /* cover / envelope */
+  .cover {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4%;
+    background: radial-gradient(ellipse at 50% 45%, rgba(255,246,240,.82), rgba(246,214,205,.95));
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    transition: opacity 1s ease, visibility 1s;
+    z-index: 5; text-align: center; padding: 8%;
+  }
+  .cover.gone { opacity: 0; visibility: hidden; }
+  .cover p.small { font-style: italic; font-size: clamp(16px, 2.6vh, 24px); letter-spacing: .04em; opacity: .8; }
+  .cover h1 {
+    font-family: "Great Vibes", cursive; font-weight: 400;
+    font-size: clamp(48px, 10vh, 110px); line-height: 1.05;
+    color: var(--rose);
+    text-shadow: 0 2px 18px rgba(255,255,255,.8);
+  }
+  .open {
+    margin-top: 3%;
+    border: 0; cursor: pointer;
+    width: clamp(84px, 13vh, 130px); aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff6f3, #f2b8bd 60%, #e68f9b);
+    box-shadow: 0 10px 30px rgba(201,79,95,.35), inset 0 -4px 10px rgba(201,79,95,.25);
+    font-size: clamp(36px, 6vh, 58px);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .open:focus-visible { outline: 3px solid var(--gold); outline-offset: 6px; }
+  .cover .hint { font-size: clamp(14px, 2.1vh, 19px); opacity: .7; letter-spacing: .08em; text-transform: lowercase; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  /* controls */
+  .controls {
+    position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px;
+    display: flex; gap: 10px; z-index: 4;
+    opacity: 0; transition: opacity .8s; pointer-events: none;
+  }
+  .controls.on { opacity: 1; pointer-events: auto; }
+  .controls button {
+    width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(255,248,244,.75); color: var(--ink);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 3px 12px rgba(107,58,63,.18);
+    display: grid; place-items: center;
+  }
+  .controls svg { width: 20px; height: 20px; }
+
+  .toast {
+    position: absolute; left: 50%; bottom: max(26px, env(safe-area-inset-bottom));
+    transform: translate(-50%, 10px);
+    padding: 10px 20px; border-radius: 999px;
+    background: rgba(255,248,244,.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    font-style: italic; font-size: clamp(15px, 2.2vh, 20px); white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(107,58,63,.15);
+    opacity: 0; transition: opacity .8s, transform .8s; pointer-events: none; z-index: 4;
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce) { .open { animation: none; } }
+</style>
+</head>
+<body>
+<div class="backdrop" id="backdrop"></div>
+
+<main class="stage" id="stage">
+  <video id="vid" src="sofia-flowers.mp4" poster="start.jpg" playsinline preload="auto"></video>
+  <canvas id="fx" aria-label="Tap anywhere to grow a flower"></canvas>
+
+  <div class="controls" id="controls">
+    <button id="sound" aria-label="Mute">
+      <svg id="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+      <svg id="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
+    </button>
+    <button id="replay" aria-label="Play again">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+    </button>
+  </div>
+
+  <div class="toast" id="toast">tap anywhere to grow a flower</div>
+
+  <section class="cover" id="cover">
+    <p class="small">a little bouquet for</p>
+    <h1>Sofía</h1>
+    <button class="open" id="open" aria-label="Open your flowers">🌸</button>
+    <p class="hint">tap to open</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const vid = document.getElementById('vid');
+  const cv = document.getElementById('fx');
+  const ctx = cv.getContext('2d');
+  const cover = document.getElementById('cover');
+  const controls = document.getElementById('controls');
+  const toast = document.getElementById('toast');
+  const backdrop = document.getElementById('backdrop');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize); resize();
+
+  // palette matched to the bouquet in the video
+  const PALETTE = [
+    { petal: '#f7b7b9', edge: '#f9d3cf', heart: '#f2b04a' }, // blush peony
+    { petal: '#c8283a', edge: '#e2505d', heart: '#7a1622' }, // red rose
+    { petal: '#e86d8a', edge: '#f5a3b5', heart: '#a73452' }, // pink rose
+    { petal: '#fbf5ea', edge: '#ffffff', heart: '#c8d68a' }, // white ranunculus
+    { petal: '#b99be0', edge: '#dccaf3', heart: '#7c5ab0' }, // lavender sweet pea
+  ];
+  const pick = a => a[(Math.random() * a.length) | 0];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp01 = x => Math.max(0, Math.min(1, x));
+  const easeOutBack = t => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+  const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+  const flowers = [];
+  const petals = [];
+  let bloomed = false;  // video finished
+  let opened = false;
+
+  // ---------- flowers ----------
+  function addFlower(x, y, big) {
+    const s = Math.min(W, H) * (big ? rand(.11, .15) : rand(.07, .11));
+    const side = x < W / 2 ? -1 : 1;
+    flowers.push({
+      x, y, s,
+      c: pick(PALETTE),
+      n: (Math.random() * 3 | 0) + 5,           // 5–7 petals per ring
+      rings: Math.random() < .6 ? 3 : 2,
+      rot: rand(0, Math.PI * 2),
+      phase: rand(0, 6.28),
+      t0: performance.now(),
+      // stem curls in from below/outside like the vines in the video
+      sx: x + side * s * rand(.6, 1.6),
+      sy: y + s * rand(1.6, 2.6),
+      cx: x - side * s * rand(.8, 1.6),
+      cy: y + s * rand(.6, 1.2),
+      dying: 0,
+    });
+    if (flowers.length > 36) flowers[0].dying = performance.now();
+    burst(x, y, 10);
+  }
+
+  function drawPetal(len, wid) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(wid, -len * .25, wid * .9, -len * .85, 0, -len);
+    ctx.bezierCurveTo(-wid * .9, -len * .85, -wid, -len * .25, 0, 0);
+    ctx.fill();
+  }
+
+  function drawFlower(f, now) {
+    const age = (now - f.t0) / 1000;
+    let alpha = 1;
+    if (f.dying) { alpha = 1 - (now - f.dying) / 900; if (alpha <= 0) return false; }
+
+    const stemT = easeOut(clamp01(age / .7));
+    const bloomT = clamp01((age - .45) / 1.1);
+    const sway = Math.sin(now / 1400 + f.phase) * .06;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // stem: quadratic curve drawn progressively
+    if (stemT > 0) {
+      ctx.strokeStyle = '#5f7f3e';
+      ctx.lineWidth = Math.max(1.5, f.s * .07);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const steps = 24, m = Math.ceil(steps * stemT);
+      for (let i = 0; i <= m; i++) {
+        const t = Math.min(i / steps, stemT), u = 1 - t;
+        const px = u * u * f.sx + 2 * u * t * f.cx + t * t * f.x;
+        const py = u * u * f.sy + 2 * u * t * f.cy + t * t * f.y;
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+      // little leaf + golden tendril curl
+      if (stemT > .5) {
+        const lt = .55, u = 1 - lt;
+        const lx = u * u * f.sx + 2 * u * lt * f.cx + lt * lt * f.x;
+        const ly = u * u * f.sy + 2 * u * lt * f.cy + lt * lt * f.y;
+        const g = easeOut(clamp01((stemT - .5) / .5));
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate((f.sx < f.x ? -1 : 1) * 1.0 + sway);
+        ctx.fillStyle = '#7a9b4c';
+        drawPetal(f.s * .55 * g, f.s * .22 * g);
+        ctx.restore();
+        ctx.strokeStyle = 'rgba(201,163,91,.85)';
+        ctx.lineWidth = Math.max(1, f.s * .025);
+        ctx.beginPath();
+        for (let a = 0; a < 4.5 * g; a += .15) {
+          const r = f.s * .32 * (1 - a / 5);
+          const px = lx + Math.cos(a + f.phase) * r, py = ly + Math.sin(a + f.phase) * r;
+          a ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // bloom
+    if (bloomT > 0) {
+      const k = easeOutBack(bloomT);
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.rot + sway + (1 - bloomT) * -1.2);
+      ctx.shadowColor = 'rgba(107,58,63,.25)';
+      ctx.shadowBlur = f.s * .25;
+      for (let r = 0; r < f.rings; r++) {
+        const ringK = clamp01(k - r * .12);
+        const len = f.s * (1 - r * .28) * ringK;
+        const wid = f.s * (.55 - r * .1) * ringK;
+        const grad = ctx.createLinearGradient(0, 0, 0, -len);
+        grad.addColorStop(0, f.c.petal);
+        grad.addColorStop(1, f.c.edge);
+        ctx.fillStyle = grad;
+        const n = f.n + r;
+        for (let i = 0; i < n; i++) {
+          ctx.save();
+          ctx.rotate((i / n) * Math.PI * 2 + r * .45);
+          drawPetal(len, wid);
+          ctx.restore();
+        }
+        ctx.shadowBlur = 0;
+      }
+      // heart with tiny gold stamens
+      ctx.fillStyle = f.c.heart;
+      ctx.beginPath(); ctx.arc(0, 0, f.s * .16 * k, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,226,140,.95)';
+      for (let i = 0; i < 9; i++) {
+        const a = i * 2.4, d = f.s * .09 * k;
+        ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, f.s * .025 * k, 0, 7); ctx.fill();
+      }
+    }
+    ctx.restore();
+    return true;
+  }
+
+  // ---------- drifting / swirling petals ----------
+  function spawnPetal(x, y, vx, vy, orbit) {
+    const c = pick(PALETTE);
+    petals.push({
+      x, y, vx, vy,
+      rot: rand(0, 6.28), vr: rand(-2, 2),
+      s: Math.min(W, H) * rand(.012, .022),
+      col: Math.random() < .5 ? c.petal : c.edge,
+      life: 0, max: rand(4, 8),
+      orbit, ang: 0, rad: 0, flip: rand(0, 6.28),
+    });
+    if (petals.length > 260) petals.shift();
+  }
+  function burst(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, 6.28), sp = rand(40, 140);
+      spawnPetal(x, y, Math.cos(a) * sp, Math.sin(a) * sp - 30, false);
+    }
+  }
+  function spawnOrbiter() {
+    // petals that swirl around the name, like the wreath in the video
+    const p = { ang: rand(0, 6.28), rad: rand(.30, .46) };
+    spawnPetal(0, 0, 0, 0, true);
+    const q = petals[petals.length - 1];
+    q.ang = p.ang; q.rad = p.rad; q.max = rand(6, 11);
+  }
+
+  function updatePetal(p, dt) {
+    p.life += dt;
+    if (p.orbit) {
+      const cx = W / 2, cy = H * .47;
+      p.ang += dt * .45;
+      p.rad += dt * .012;
+      p.x = cx + Math.cos(p.ang) * W * p.rad;
+      p.y = cy + Math.sin(p.ang) * H * p.rad * .62 + Math.sin(p.life * 2) * 6;
+    } else {
+      p.vx *= Math.pow(.6, dt); p.vy *= Math.pow(.6, dt);
+      p.vy += 22 * dt;                        // gentle fall
+      p.vx += Math.sin(p.life * 2.2 + p.flip) * 18 * dt; // breeze
+      p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+    p.rot += p.vr * dt;
+    return p.life < p.max && p.y < H + 40;
+  }
+  function drawPetalParticle(p) {
+    const fade = Math.min(1, p.life * 3, (p.max - p.life) / 1.2);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade) * .9;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.scale(1, Math.abs(Math.sin(p.life * 3 + p.flip)) * .6 + .4); // tumbling
+    ctx.fillStyle = p.col;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, p.s, p.s * .62, 0, 0, 7);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------- sparkles that follow the finger / cursor ----------
+  const sparks = [];
+  function sparkle(x, y) {
+    sparks.push({ x, y, life: 0, max: rand(.5, 1), s: rand(1.5, 3.5) });
+    if (sparks.length > 120) sparks.shift();
+  }
+
+  // ---------- loop ----------
+  let last = performance.now(), orbitTimer = 0;
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    ctx.clearRect(0, 0, W, H);
+
+    if (bloomed && !reduced) {
+      orbitTimer += dt;
+      if (orbitTimer > .22) { orbitTimer = 0; spawnOrbiter(); }
+    }
+
+    for (let i = flowers.length - 1; i >= 0; i--) if (!drawFlower(flowers[i], now)) flowers.splice(i, 1);
+    for (let i = petals.length - 1; i >= 0; i--) {
+      const p = petals[i];
+      if (!updatePetal(p, dt)) { petals.splice(i, 1); continue; }
+      drawPetalParticle(p);
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i]; s.life += dt;
+      if (s.life > s.max) { sparks.splice(i, 1); continue; }
+      const a = 1 - s.life / s.max;
+      ctx.fillStyle = `rgba(255,232,170,${a})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y - s.life * 20, s.s * a, 0, 7); ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- interaction ----------
+  function pt(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  let lastMove = 0;
+  cv.addEventListener('pointerdown', e => {
+    if (!opened) return;
+    const { x, y } = pt(e);
+    addFlower(x, y, Math.random() < .3);
+    hideToastSoon();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!opened) return;
+    const now = performance.now();
+    if (now - lastMove < 30) return;
+    lastMove = now;
+    const { x, y } = pt(e);
+    sparkle(x, y);
+    if (Math.random() < .25) spawnPetal(x, y, rand(-20, 20), rand(-30, 0), false);
+  });
+
+  // ---------- story ----------
+  function open() {
+    if (opened) return;
+    opened = true;
+    cover.classList.add('gone');
+    vid.muted = false;
+    vid.currentTime = 0;
+    vid.play().catch(() => { vid.muted = true; setMuteIcon(); vid.play(); });
+    setTimeout(() => controls.classList.add('on'), 1200);
+  }
+  document.getElementById('open').addEventListener('click', open);
+  cover.addEventListener('click', e => { if (e.target === cover) open(); });
+
+  let toastShown = false, toastTimer;
+  vid.addEventListener('ended', () => {
+    bloomed = true;
+    backdrop.classList.add('bloomed');
+    // a celebratory swirl when the bouquet finishes blooming
+    for (let i = 0; i < 40; i++) setTimeout(spawnOrbiter, i * 25);
+    if (!toastShown) {
+      toastShown = true;
+      toast.classList.add('on');
+      toastTimer = setTimeout(() => toast.classList.remove('on'), 6000);
+    }
+  });
+  function hideToastSoon() { clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('on'), 900); }
+
+  document.getElementById('replay').addEventListener('click', () => {
+    bloomed = false;
+    flowers.length = 0; petals.length = 0;
+    backdrop.classList.remove('bloomed');
+    vid.currentTime = 0; vid.play();
+  });
+
+  const icoOn = document.getElementById('ico-on'), icoOff = document.getElementById('ico-off');
+  const soundBtn = document.getElementById('sound');
+  function setMuteIcon() {
+    icoOn.style.display = vid.muted ? 'none' : '';
+    icoOff.style.display = vid.muted ? '' : 'none';
+    soundBtn.setAttribute('aria-label', vid.muted ? 'Unmute' : 'Mute');
+  }
+  soundBtn.addEventListener('click', () => { vid.muted = !vid.muted; setMuteIcon(); });
+
+  // keyboard: Enter/Space opens, then grows a flower in a random spot around the name
+  addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!opened) { open(); e.preventDefault(); return; }
+    if (document.activeElement && document.activeElement.tagName === 'BUTTON') return;
+    const a = rand(0, 6.28);
+    addFlower(W / 2 + Math.cos(a) * W * .36, H * .47 + Math.sin(a) * H * .3, false);
+  });
+})();
+</script>
+</body>
+</html>
