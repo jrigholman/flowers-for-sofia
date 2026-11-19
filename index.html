@@ -382,10 +382,40 @@
     if (Math.random() < .25) spawnPetal(x, y, rand(-20, 20), rand(-30, 0), false);
   });
 
+  // ---------- open counter (time, link tag and device type only) ----------
+  const TRACK_URL = 'https://surface.tail6fe647.ts.net/hit';
+  const params = new URLSearchParams(location.search);
+  const linkTag = (params.get('for') || '').slice(0, 8);
+  let isMe = false;
+  try {
+    if (params.get('me') === '1') localStorage.setItem('fo-me', '1');   // visit once with ?me=1 to stop counting this device
+    if (params.get('me') === '0') localStorage.removeItem('fo-me');
+    isMe = localStorage.getItem('fo-me') === '1';
+  } catch (e) {}
+  function deviceType() {
+    const ua = navigator.userAgent;
+    if (/iPhone/.test(ua)) return 'iPhone';
+    if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'iPad';
+    if (/Android/.test(ua)) return 'Android';
+    if (/Macintosh/.test(ua)) return 'Mac';
+    if (/Windows/.test(ua)) return 'Windows';
+    return 'other';
+  }
+  function track(e) {
+    if (isMe) return;
+    const body = JSON.stringify({ e, for: linkTag, d: deviceType() });
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(TRACK_URL, body)) return;
+    } catch (err) {}
+    try { fetch(TRACK_URL, { method: 'POST', body, keepalive: true, mode: 'cors' }).catch(() => {}); } catch (err) {}
+  }
+  track('load');
+
   // ---------- story ----------
   function open() {
     if (opened) return;
     opened = true;
+    track('open');
     cover.classList.add('gone');
     vid.currentTime = 0;
     vid.play();
@@ -409,6 +439,7 @@
   function hideToastSoon() { clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('on'), 900); }
 
   document.getElementById('replay').addEventListener('click', () => {
+    track('replay');
     bloomed = false;
     flowers.length = 0; petals.length = 0; glows.length = 0;
     backdrop.classList.remove('bloomed');
