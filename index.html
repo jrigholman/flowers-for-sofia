@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f6dcd4">
-<link rel="preload" href="sofia-flowers.mp4" as="video" type="video/mp4">
+<link rel="preload" href="sofia-flowers.mp4?v=2" as="video" type="video/mp4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
@@ -124,14 +124,10 @@
 <div class="backdrop" id="backdrop"></div>
 
 <main class="stage" id="stage">
-  <video id="vid" src="sofia-flowers.mp4" poster="start.jpg" playsinline preload="auto"></video>
+  <video id="vid" src="sofia-flowers.mp4?v=2" poster="start.jpg" muted playsinline preload="auto"></video>
   <canvas id="fx" aria-label="Tap anywhere to grow a flower"></canvas>
 
   <div class="controls" id="controls">
-    <button id="sound" aria-label="Mute">
-      <svg id="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-      <svg id="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>
-    </button>
     <button id="replay" aria-label="Play again">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
     </button>
@@ -426,9 +422,8 @@
     if (opened) return;
     opened = true;
     cover.classList.add('gone');
-    vid.muted = false;
     vid.currentTime = 0;
-    vid.play().catch(() => { vid.muted = true; setMuteIcon(); vid.play(); });
+    vid.play();
     setTimeout(() => controls.classList.add('on'), 1200);
   }
   document.getElementById('open').addEventListener('click', open);
@@ -454,15 +449,6 @@
     backdrop.classList.remove('bloomed');
     vid.currentTime = 0; vid.play();
   });
-
-  const icoOn = document.getElementById('ico-on'), icoOff = document.getElementById('ico-off');
-  const soundBtn = document.getElementById('sound');
-  function setMuteIcon() {
-    icoOn.style.display = vid.muted ? 'none' : '';
-    icoOff.style.display = vid.muted ? '' : 'none';
-    soundBtn.setAttribute('aria-label', vid.muted ? 'Unmute' : 'Mute');
-  }
-  soundBtn.addEventListener('click', () => { vid.muted = !vid.muted; setMuteIcon(); });
 
   // keyboard: Enter/Space opens, then grows a flower in a random spot around the name
   addEventListener('keydown', e => {
