@@ -184,120 +184,80 @@
   let bloomed = false;  // video finished
   let opened = false;
 
-  // ---------- flowers ----------
+  // ---------- flowers (painted cutouts matching the bouquet) ----------
+  const SPRITES = [];
+  const SPRITE_FILES = ['f0', 'f1', 'f2', 'f3', 'f4', 'f5'];
+  SPRITE_FILES.forEach(name => {
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      // bake a soft drop shadow once so each frame is just a drawImage
+      const pad = Math.round(img.width * .12);
+      const c = document.createElement('canvas');
+      c.width = img.width + pad * 2; c.height = img.height + pad * 2;
+      const g = c.getContext('2d');
+      g.shadowColor = 'rgba(107,58,63,.28)';
+      g.shadowBlur = pad * .7;
+      g.shadowOffsetY = pad * .25;
+      g.drawImage(img, pad, pad);
+      SPRITES.push(c);
+    };
+    img.src = `flowers/${name}.webp`;
+  });
+
+  let lastSprite = -1;
   function addFlower(x, y, big) {
-    const s = Math.min(W, H) * (big ? rand(.11, .15) : rand(.07, .11));
-    const side = x < W / 2 ? -1 : 1;
+    if (!SPRITES.length) return;
+    let i; do { i = (Math.random() * SPRITES.length) | 0; } while (SPRITES.length > 1 && i === lastSprite);
+    lastSprite = i;
     flowers.push({
-      x, y, s,
-      c: pick(PALETTE),
-      n: (Math.random() * 3 | 0) + 5,           // 5–7 petals per ring
-      rings: Math.random() < .6 ? 3 : 2,
-      rot: rand(0, Math.PI * 2),
+      x, y,
+      img: SPRITES[i],
+      s: Math.min(W, H) * (big ? rand(.30, .38) : rand(.20, .28)),  // drawn width
+      rot: rand(-.5, .5),
+      spin: rand(.9, 1.5) * (Math.random() < .5 ? -1 : 1),
       phase: rand(0, 6.28),
       t0: performance.now(),
-      // stem curls in from below/outside like the vines in the video
-      sx: x + side * s * rand(.6, 1.6),
-      sy: y + s * rand(1.6, 2.6),
-      cx: x - side * s * rand(.8, 1.6),
-      cy: y + s * rand(.6, 1.2),
       dying: 0,
     });
-    if (flowers.length > 36) flowers[0].dying = performance.now();
-    burst(x, y, 10);
+    if (flowers.length > 30) flowers[0].dying = performance.now();
+    glow(x, y);
+    burst(x, y, 12);
   }
 
-  function drawPetal(len, wid) {
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.bezierCurveTo(wid, -len * .25, wid * .9, -len * .85, 0, -len);
-    ctx.bezierCurveTo(-wid * .9, -len * .85, -wid, -len * .25, 0, 0);
-    ctx.fill();
+  const glows = [];
+  function glow(x, y) { glows.push({ x, y, t0: performance.now() }); }
+  function drawGlows(now) {
+    for (let i = glows.length - 1; i >= 0; i--) {
+      const g = glows[i], t = (now - g.t0) / 900;
+      if (t >= 1) { glows.splice(i, 1); continue; }
+      const r = Math.min(W, H) * (.05 + .2 * easeOut(t));
+      const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, r);
+      grad.addColorStop(0, `rgba(255,236,190,${.55 * (1 - t)})`);
+      grad.addColorStop(1, 'rgba(255,236,190,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(g.x, g.y, r, 0, 7); ctx.fill();
+    }
   }
 
   function drawFlower(f, now) {
     const age = (now - f.t0) / 1000;
-    let alpha = 1;
-    if (f.dying) { alpha = 1 - (now - f.dying) / 900; if (alpha <= 0) return false; }
+    let alpha = clamp01(age / .25);
+    if (f.dying) { alpha *= 1 - (now - f.dying) / 900; if (alpha <= 0) return false; }
 
-    const stemT = easeOut(clamp01(age / .7));
-    const bloomT = clamp01((age - .45) / 1.1);
-    const sway = Math.sin(now / 1400 + f.phase) * .06;
+    const t = clamp01(age / 1.1);
+    const k = .12 + .88 * easeOutBack(t);                 // grow with a soft overshoot
+    const unwind = (1 - easeOut(t)) * f.spin;              // twists open as it grows
+    const sway = Math.sin(now / 1500 + f.phase) * .035;    // then breathes gently
+    const breathe = 1 + Math.sin(now / 1900 + f.phase) * .015 * t;
 
+    const w = f.s * k * breathe;
+    const h = w * f.img.height / f.img.width;
     ctx.save();
     ctx.globalAlpha = alpha;
-
-    // stem: quadratic curve drawn progressively
-    if (stemT > 0) {
-      ctx.strokeStyle = '#5f7f3e';
-      ctx.lineWidth = Math.max(1.5, f.s * .07);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      const steps = 24, m = Math.ceil(steps * stemT);
-      for (let i = 0; i <= m; i++) {
-        const t = Math.min(i / steps, stemT), u = 1 - t;
-        const px = u * u * f.sx + 2 * u * t * f.cx + t * t * f.x;
-        const py = u * u * f.sy + 2 * u * t * f.cy + t * t * f.y;
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      }
-      ctx.stroke();
-      // little leaf + golden tendril curl
-      if (stemT > .5) {
-        const lt = .55, u = 1 - lt;
-        const lx = u * u * f.sx + 2 * u * lt * f.cx + lt * lt * f.x;
-        const ly = u * u * f.sy + 2 * u * lt * f.cy + lt * lt * f.y;
-        const g = easeOut(clamp01((stemT - .5) / .5));
-        ctx.save();
-        ctx.translate(lx, ly);
-        ctx.rotate((f.sx < f.x ? -1 : 1) * 1.0 + sway);
-        ctx.fillStyle = '#7a9b4c';
-        drawPetal(f.s * .55 * g, f.s * .22 * g);
-        ctx.restore();
-        ctx.strokeStyle = 'rgba(201,163,91,.85)';
-        ctx.lineWidth = Math.max(1, f.s * .025);
-        ctx.beginPath();
-        for (let a = 0; a < 4.5 * g; a += .15) {
-          const r = f.s * .32 * (1 - a / 5);
-          const px = lx + Math.cos(a + f.phase) * r, py = ly + Math.sin(a + f.phase) * r;
-          a ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-        }
-        ctx.stroke();
-      }
-    }
-
-    // bloom
-    if (bloomT > 0) {
-      const k = easeOutBack(bloomT);
-      ctx.translate(f.x, f.y);
-      ctx.rotate(f.rot + sway + (1 - bloomT) * -1.2);
-      ctx.shadowColor = 'rgba(107,58,63,.25)';
-      ctx.shadowBlur = f.s * .25;
-      for (let r = 0; r < f.rings; r++) {
-        const ringK = clamp01(k - r * .12);
-        const len = f.s * (1 - r * .28) * ringK;
-        const wid = f.s * (.55 - r * .1) * ringK;
-        const grad = ctx.createLinearGradient(0, 0, 0, -len);
-        grad.addColorStop(0, f.c.petal);
-        grad.addColorStop(1, f.c.edge);
-        ctx.fillStyle = grad;
-        const n = f.n + r;
-        for (let i = 0; i < n; i++) {
-          ctx.save();
-          ctx.rotate((i / n) * Math.PI * 2 + r * .45);
-          drawPetal(len, wid);
-          ctx.restore();
-        }
-        ctx.shadowBlur = 0;
-      }
-      // heart with tiny gold stamens
-      ctx.fillStyle = f.c.heart;
-      ctx.beginPath(); ctx.arc(0, 0, f.s * .16 * k, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,226,140,.95)';
-      for (let i = 0; i < 9; i++) {
-        const a = i * 2.4, d = f.s * .09 * k;
-        ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, f.s * .025 * k, 0, 7); ctx.fill();
-      }
-    }
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rot + unwind + sway);
+    ctx.drawImage(f.img, -w / 2, -h / 2, w, h);
     ctx.restore();
     return true;
   }
@@ -378,7 +338,8 @@
       if (orbitTimer > .22) { orbitTimer = 0; spawnOrbiter(); }
     }
 
-    for (let i = flowers.length - 1; i >= 0; i--) if (!drawFlower(flowers[i], now)) flowers.splice(i, 1);
+    drawGlows(now);
+    for (let i = 0; i < flowers.length; i++) if (!drawFlower(flowers[i], now)) { flowers.splice(i, 1); i--; }
     for (let i = petals.length - 1; i >= 0; i--) {
       const p = petals[i];
       if (!updatePetal(p, dt)) { petals.splice(i, 1); continue; }
@@ -445,7 +406,7 @@
 
   document.getElementById('replay').addEventListener('click', () => {
     bloomed = false;
-    flowers.length = 0; petals.length = 0;
+    flowers.length = 0; petals.length = 0; glows.length = 0;
     backdrop.classList.remove('bloomed');
     vid.currentTime = 0; vid.play();
   });
