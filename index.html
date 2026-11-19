@@ -409,7 +409,17 @@
     } catch (err) {}
     try { fetch(TRACK_URL, { method: 'POST', body, keepalive: true, mode: 'cors' }).catch(() => {}); } catch (err) {}
   }
-  track('load');
+  // count a visit only once the page is really on screen, so off-screen
+  // link-preview renderers (e.g. iMessage building its preview) don't register
+  function trackLoadWhenVisible() {
+    if (document.visibilityState === 'visible') { setTimeout(() => track('load'), 400); return; }
+    document.addEventListener('visibilitychange', function once() {
+      if (document.visibilityState !== 'visible') return;
+      document.removeEventListener('visibilitychange', once);
+      setTimeout(() => track('load'), 400);
+    });
+  }
+  trackLoadWhenVisible();
 
   // ---------- story ----------
   function open() {
